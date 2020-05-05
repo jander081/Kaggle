@@ -1,0 +1,345 @@
+---
+title: "R preprocessing "
+output: html_notebook
+---
+
+
+```{r}
+library('ggplot2') 
+library('caret') 
+library('dplyr') 
+library('car')
+
+```
+
+```{r}
+train = read.csv('train (1).csv', stringsAsFactors=F)
+test = read.csv('test (1).csv', stringsAsFactors = F)
+test$Survived = NA
+full = rbind(train, test) 
+```
+
+
+experiment rexp
+Exploratory 
+
+head: Returns the first or last parts of a vector, matrix, table, data frame or function. Since head() and tail() are generic functions, they may also have been extended to other classes.
+
+gsub: sub and gsub perform replacement of the first and all matches respectively.
+gsub(pattern, replacement, x, ignore.case = FALSE, perl = FALSE,
+     fixed = FALSE, useBytes = FALSE)
+     
+regx: A ‘regular expression’ is a pattern that describes a set of strings. 
+
+x <- "A. J. Burnett"
+gsub("([A-Z])\\.\\s([A-Z])\\.", "\\1.\\2.", x)
+[1] "A.J. Burnett"
+
+this actually makes sense...
+
+gsub('.*, |\\..*', '', combined_data$Name)
+```{r}
+test <- c("MAllen, Mr. William Henry", "Hewlett, Mrs. (Mary D Kingcome)", "Futrelle, Mrs. Jacques Heath (Lily May Peel)")
+
+ gsub('(.*, )|(\\..*)', '', test)
+```
+Basically, replace (.*, ) everything before the comma and/or everything after the period (\\.) everything 
+
+|    is OR operand
+.*   Any character except line break
+\\.  is a way to use period, otherwise . means "any character"
+
+nchar: takes a character vector as an argument and returns a vector whose elements contain the sizes of the corresponding elements of x.
+
+x <- c("asfef", "qwerty", "yuiop[", "b", "stuff.blah.yech")
+nchar(x)
+# 5  6  6  1 15
+
+CABIN
+```{r}
+cabin = full$Cabin
+dim(cabin)
+summary(cabin)
+str(cabin)
+```
+
+strsplit: Split the elements of a character vector x into substrings according to the matches to substring split within them.
+
+```{r}
+x = c(as = "asfef", qu = "qwerty", "yuiop[", "b", "stuff.blah.yech")
+str(x)
+# split x on the letter e
+x1 = strsplit(x, "e") #this is now a list
+typeof(x1)
+str(x1) #still has the original number of elements; however, elements that have been split are now single element sublists
+
+```
+
+
+```{r}
+cabin_t= cabin[1:50]
+c = cabin_t[22] 
+str(c)
+
+s_t = strsplit(cabin_t[22], " ")
+s_t #converts into a single element list, no actual split though
+
+cabin_t[28]
+s1 = strsplit(cabin_t[28], " ")[[1]] #tacking the double bracket on returns a clean 1 element list
+#or a two step process
+s2 = strsplit(cabin_t[28], " ")
+s2[[1]]
+length(s2[[1]])
+```
+
+
+```{r}
+
+n = length(cabin_t) #50
+for(i in 1:n){
+  if(nchar(cabin_t[i]) == 0){
+    cabin_t[i] = 0
+  }else{
+    cabin_t[i] = length(strsplit(cabin_t[i]," ")[[1]])
+  }
+} 
+table(cabin_t)
+```
+
+
+```{r}
+n = length(cabin_t)
+for(i in 1:n){
+  ifelse(nchar(cabin_t[i]) == 0, cabin_t[i] = 0, cabin_t[i] = length(strsplit(cabin_t[i]," ")[[1]]))}
+   
+table(cabin_t)
+```
+```{r}
+cabin_t[28]
+cabin_t[28] = length(strsplit(cabin_t[28]," ")[[1]])
+
+ifelse(nchar(cabin_t[28]) == 0, cabin_t[28] = 0, cabin_t[28] = length(strsplit(cabin_t[28]," ")[[1]]))
+#not sure why this func doesn't work
+
+nchar(cabin_t[28]) == 0
+cabin_t[28] = 0
+cabin_t[28] = length(strsplit(cabin_t[28]," ")[[1]])
+
+```
+
+TITLES
+```{r}
+full$title[full$title == 'Mlle'] = 'Miss' 
+full$title[full$title == 'Ms']  = 'Miss'
+full$title[full$title == 'Mme'] = 'Mrs' 
+full$title[full$title == 'Lady'] = 'Miss'
+full$title[full$title == 'Dona'] = 'Miss'
+full$title[full$title == 'Capt'] = 'Officer' 
+full$title[full$title == 'Col'] = 'Officer' 
+full$title[full$title == 'Major'] = 'Officer'
+full$title[full$title == 'Dr']  = 'Officer'
+full$title[full$title == 'Rev'] = 'Officer'
+full$title[full$title == 'Don'] = 'Officer'
+full$title[full$title == 'Sir'] = 'Officer'
+full$title[full$title == 'the Countess']  = 'Officer'
+full$title[full$title == 'Jonkheer']  = 'Officer'
+
+table(full$title)
+```
+
+
+```{r}
+names = full$Name
+str(names)
+title =  gsub("^.*, (.*?)\\..*$", "\\1", names)
+str(title)
+head(title, n = 10)
+table(title)
+```
+
+```{r}
+n = length(title)
+for(i in 1:n){
+  if(title[i] == "Mlle"){
+    title[i] = "Miss"
+  }else if(title[i] == "Ms"){
+    title[i] = "Miss"
+  }else if(title[i] == "Mme"){
+    title[i] = "Mrs"
+  }else if(title[i] == "Lady"){
+    title[i] = "Miss"
+  }else if(title[i] == "Dona"){
+    title[i] = "Mrs"
+  }else if(title[i] == "Don"){
+    title[i] = "Master"
+  }else if(title[i] == "Capt"){
+    title[i] = "crew"
+  }else if(title[i] == "Col"){
+    title[i] = "crew"
+  }else if(title[i] == "Major"){
+    title[i] = "crew"
+  }else if(title[i] == "Rev"){
+    title[i] = "prof"
+  }else if(title[i] == "Dr"){
+    title[i] = "prof"
+  }else if(title[i] == "Jonkheer"){
+    title[i] = "Master"
+  }else if(title[i] == "Sir"){
+    title[i] = "Master"
+  }else if(title[i] == "the Countess"){
+    title[i] = "Mrs"
+  }
+}
+
+table(title)
+
+
+
+```
+
+FAMILY
+```{r}
+# Lets create a Family size 
+
+full_titanic$FamilySize = full_titanic$SibSp + full_titanic$Parch + 1
+
+full_titanic$FamilySized[full_titanic$FamilySize == 1]   = 'Single'
+full_titanic$FamilySized[full_titanic$FamilySize < 5 & full_titanic$FamilySize >= 2]   = 'Small'
+full_titanic$FamilySized[full_titanic$FamilySize >= 5]   = 'Large'
+
+full_titanic$FamilySized=as.factor(full_titanic$FamilySized)
+```
+
+
+```{r}
+sib = full$SibSp
+pat = full$Parch
+family = sib + pat + 1
+n = length(family)
+for(i in 1:n){
+  if(family[i] == 1){
+    family[i] = "solo"
+  }else if(family[i] >= 2 & family[i] < 5){
+    family[i] = "small"
+  }else{
+    family[i] = "large"
+  }
+}
+
+table(family)
+```
+
+TICKETS
+```{r}
+head(full$Ticket)
+ticket = unique(full$Ticket)
+length(ticket)
+
+ticket_unique = rep(0, nrow(full))
+
+
+
+```
+
+when we're looking at tickets, we are looking for the same tickets. This will indicate families/groups?
+
+```{r}
+ticket_unique = rep(0, nrow(full)) #zero array used to construct new column
+tickets = unique(full$Ticket)  #929 unique ticket values
+head(tickets)
+length(tickets)
+for (i in 1:length(tickets)) {
+  current_ticket = tickets[i]
+  party_indexes = which(full$Ticket == current_ticket) #returns an integer row vector
+  
+  
+  for (k in 1:length(party_indexes)) {
+    ticket_unique[party_indexes[k]] = length(party_indexes)
+  }
+}
+table(ticket_unique)
+
+
+full$ticket_unique = ticket_unique #create a column
+
+
+full$ticket_size[full$ticket_unique == 1]   <- 'Single'
+full$ticket_size[full$ticket_unique < 5 & full$ticket_unique>= 2]   <- 'Small'
+full$ticket_size[full$ticket_unique >= 5]   <- 'Big'
+
+
+
+```
+
+```{r}
+
+test = full$Ticket[1:300]
+test_unique = rep(0, 300) #creating a new column of zeros
+#table(test)
+#str(test)
+
+#basically, the same idea as family as far as grouping
+current_ticket = "382652"
+index = which(test == current_ticket)
+typeof(index)
+str(index) #integer row vector
+test[17]
+index[1] #this equals 17
+test_unique[index[1]] = length(index)
+
+```
+
+
+```{r}
+ticket_unique = rep(0, nrow(full)) #zero array used to construct new column
+tickets = unique(full$Ticket)
+
+str(tickets) #929 unique ticket values
+str(full$Ticket) #1309
+str(ticket_unique) #1309 zero vector
+n = length(tickets)
+for(i in 1:n){
+  group = which(full$Ticket == tickets[i]) #integer row vector consisting of index numbers where this is TRUE
+  m = length(group)
+  
+  for(k in 1:m){
+    ticket_unique[group[k]] = m
+  }
+}
+
+str(ticket_unique)
+table(ticket_unique)
+
+
+```
+
+```{r}
+ticket_size = c()
+n = length(ticket_unique)
+for(i in 1:n){
+  if(ticket_unique[i] == 1){
+    ticket_size[i] = "solo"
+  }else if(ticket_unique[i] >= 2 & ticket_unique[i] < 5){
+    ticket_size[i] = "small"
+  }else{
+    ticket_size[i] = "large" 
+  }
+}
+
+str(ticket_size)  
+table(ticket_size)
+full$ticket_group = ticket_size
+
+```
+
+```{r}
+full$Age = ifelse(is.na(full$Age),
+                          ave(full$Age, FUN = function(x) mean(x, na.rm = TRUE)),
+                          full$Age)
+```
+
+My code
+
+
+
+

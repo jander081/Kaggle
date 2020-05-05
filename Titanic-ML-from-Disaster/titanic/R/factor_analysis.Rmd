@@ -1,0 +1,123 @@
+---
+title: "Factor"
+output: html_document
+---
+
+Need to walk through this step by step - unfortunately. In the interium, try a subset of titanic data
+
+
+```{r}
+data1 = read.csv('../raw_data/train (1).csv')
+
+
+```
+
+```{r}
+colSums(is.na(data1))
+```
+Apply a function to each cell of a ragged array, that is to each (non-empty) group of values given by a unique combination of the levels of certain factors.
+
+```{r}
+sib = data1$SibSp
+pat = data1$Parch
+family = sib + pat + 1
+n = length(family)
+for(i in 1:n){
+  if(family[i] == 1){
+    family[i] = "solo"
+  }else{
+    family[i] = ">1"
+  }
+}
+
+table(family)
+data1$family = factor(family) 
+contrasts(data1$family)
+
+```
+
+```{r}
+data1$Fare = ifelse(is.na(data1$Fare), 
+                    ave(data1$Fare, FUN = function(x) mean(x, na.rm = T)),
+                    data1$Fare)
+mean(data1$Fare)
+
+test = data1$Fare[1:10]
+
+n = length(test)
+for(i in 1:n){
+  if(test[i] < 12){
+    test[i]= 'low'
+  }else if(test[i] >= 12 & test[i] < 32){
+    test[i] = 'med'
+  }else{
+    test[i] = 'high'
+  }
+}
+
+n = length(data1$Fare)
+for(i in 1:n){
+  if(data1$Fare[i] < 15){
+    data1$Fare[i] = 'low'
+  }else{
+    data1$Fare[i] = 'high'
+  }
+}
+
+data1$Fare = as.factor(data1$Fare)
+
+```
+
+```{r}
+n = length(data1$Pclass)
+for(i in 1:n){
+  if(data1$Pclass[i] == 1 | data1$Pclass[i] == 2){
+    data1$Pclass[i] = 'high'
+  }else{
+    data1$Pclass[i] = 'low'
+  }
+}
+
+data1$Pclass = as.factor(data1$Pclass)
+
+
+
+```
+
+
+```{r}
+tapply(data1$Survived, data1$Pclass, mean)
+
+
+tapply(data1$Survived, data1$family, mean)
+tapply(data1$Survived, data1$Fare, mean)
+table(data1$Pclass)
+
+
+library(caTools)
+set.seed(123)
+split = sample.split(data1, SplitRatio = 0.5)
+rep1 = subset(data1, split == TRUE)
+rep2 = subset(data1, split == FALSE)
+```
+
+
+```{r}
+library(dplyr)
+str(data1)
+
+count(filter(data1, family == 'solo', Survived == 1))
+count(filter(data1, family == '>1', Survived == 1))
+
+count(filter(data1, Fare == 'low', Survived == 0))
+
+
+
+
+
+
+
+
+
+```
+

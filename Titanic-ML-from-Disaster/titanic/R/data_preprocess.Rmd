@@ -1,0 +1,529 @@
+---
+title: "data"
+output: html_document
+---
+
+Import initial dataset
+---------------------------------------
+```{r}
+set.seed(123)
+library(ggplot2)
+train = read.csv('../raw_data/train (1).csv')
+dim(train)
+
+test = read.csv('../raw_data/test (1).csv')
+test$Survived = NA
+dim(test)
+
+full = rbind(train, test) 
+dim(full)
+#str(full) 
+```
+
+
+
+```{r}
+print('Missing observation?')
+colSums(is.na(full))
+print('Empty data')
+colSums(full=='')
+print('number of unique values per column')
+apply(full,2, function(x) length(unique(x)))
+```
+
+EMBARKED
+------------------------------------------------------------------------
+
+```{r}
+table(full$Embarked)
+# replace missing with mode
+full$Embarked[full$Embarked==""]="S"
+table(full$Embarked)
+full$Embarked = factor(full$Embarked)
+```
+
+Other methods:
+```{r}
+full$Embarked <- replace(full$Embarked, which(is.na(full$Embarked)), 'S')
+```
+
+```{r}
+
+ggplot(full[1:891,],aes(x = Embarked, fill=factor(Survived))) +
+geom_bar() +
+ggtitle("Embarked vs Survival Rate")+
+xlab("Embarked") +
+ylab("Total Count") +
+labs(fill = "Survived") 
+# I can definitely test for an interaction
+```
+
+```{r}
+tapply(train$Survived,train$Embarked,mean) # used train 
+```
+Note that C is relatively higher
+
+PCLASS
+------------------------------------------------------------------------
+
+```{r}
+full$Pclass = factor(full$Pclass)
+# consider normalizing as numeric
+```
+
+
+```{r}
+###Visualize P class which is the best proxy for Rich and Poor  
+
+ggplot(full[1:891,],aes(x = Pclass,fill=factor(Survived))) +
+geom_bar() +
+ggtitle("Pclass v/s Survival Rate")+
+xlab("Pclass") +
+ylab("Total Count") +
+labs(fill = "Survived")  
+```
+
+```{r}
+# Visualize the 3-way relationship of sex, pclass, and survival
+ggplot(full[1:891,], aes(x = Sex, fill = factor(Survived))) +
+geom_bar() + #bar chart
+facet_wrap(~Pclass) + 
+ggtitle("3D view of sex, pclass, and survival") +
+xlab("Sex") +
+ylab("Total Count") +
+labs(fill = "Survived")
+```
+
+
+```{r}
+# Visualize the 3-way relationship of embarked, pclass, and survival
+ggplot(full[1:891,], aes(x = Embarked, fill = factor(Survived))) +
+geom_bar() + #bar chart
+facet_wrap(~Pclass) + 
+ggtitle("3D view of embarked, pclass, and survival") +
+xlab("Embarked") +
+ylab("Total Count") +
+labs(fill = "Survived")
+```
+
+
+
+FARE
+------------------------------------------------------------------------
+
+```{r}
+
+full$Fare = ifelse(is.na(full$Fare),
+                     ave(full$Fare, FUN = function(x) mean(x, na.rm = TRUE)),
+                     full$Fare)
+# Just curious
+plot(full$Fare, full$Age)
+# there is less variance in age as the fare becomes higher
+```
+
+
+
+
+
+TITLE
+------------------------------------------------------------------------
+```{r}
+#head(full$Name, n = 1)
+names = full$Name
+title =  gsub("^.*, (.*?)\\..*$", "\\1", names)
+table(title)
+```
+
+If-else func for title assignment - preferred
+```{r}
+n = length(title)
+for(i in 1:n){
+  if(title[i] == "Mlle"){
+    title[i] = "Miss"
+  }else if(title[i] == "Ms"){
+    title[i] = "Miss"
+  }else if(title[i] == "Mme"){
+    title[i] = "Mrs"
+  }else if(title[i] == "Lady"){
+    title[i] = "Miss"
+  }else if(title[i] == "Dona"){
+    title[i] = "Mrs"
+  }else if(title[i] == "Don"){
+    title[i] = "Master"
+  }else if(title[i] == "Capt"){
+    title[i] = "crew"
+  }else if(title[i] == "Col"){
+    title[i] = "crew"
+  }else if(title[i] == "Major"){
+    title[i] = "crew"
+  }else if(title[i] == "Rev"){
+    title[i] = "crew"
+  }else if(title[i] == "Dr"){
+    title[i] = "crew"
+  }else if(title[i] == "Jonkheer"){
+    title[i] = "Master"
+  }else if(title[i] == "Sir"){
+    title[i] = "Master"
+  }else if(title[i] == "the Countess"){
+    title[i] = "Mrs"
+  }
+}
+
+full$title = factor(title)
+table(full$title)
+#str(full)
+contrasts(full$title)
+```
+
+
+
+```{r}
+ggplot(full[1:891,],aes(x = title, fill=factor(Survived))) +
+geom_bar() +
+ggtitle("Title vs Survival Rate")+
+xlab("Title") +
+ylab("Total Count") +
+labs(fill = "Survived") 
+```
+
+
+```{r}
+tapply(full$Survived[1:891], full$title[1:891], mean) 
+```
+
+```{r}
+# Visualize the 3-way relationship of title, pclass, and survival
+ggplot(full[1:891,], aes(x = title, fill = factor(Survived))) +
+geom_bar() + #bar chart
+facet_wrap(~Pclass) + 
+ggtitle("3D view of title, pclass, and survival") +
+xlab("title") +
+ylab("Total Count") +
+labs(fill = "Survived")
+```
+
+
+Alternate method - title
+```{r}
+full$title[full$title == 'Mlle'] = 'Miss' 
+full$title[full$title == 'Ms']  = 'Miss'
+full$title[full$title == 'Mme'] = 'Mrs' 
+full$title[full$title == 'Lady'] = 'Miss'
+full$title[full$title == 'Dona'] = 'Miss'
+full$title[full$title == 'Capt'] = 'Officer' 
+full$title[full$title == 'Col'] = 'Officer' 
+full$title[full$title == 'Major'] = 'Officer'
+full$title[full$title == 'Dr']  = 'Officer'
+full$title[full$title == 'Rev'] = 'Officer'
+full$title[full$title == 'Don'] = 'Officer'
+full$title[full$title == 'Sir'] = 'Officer'
+full$title[full$title == 'the Countess']  = 'Officer'
+full$title[full$title == 'Jonkheer']  = 'Officer'
+
+table(full$title)
+```
+
+FAMILY
+------------------------------------------------------------------------
+Primary
+```{r}
+sib = full$SibSp
+pat = full$Parch
+family = sib + pat + 1
+n = length(family)
+for(i in 1:n){
+  if(family[i] == 1){
+    family[i] = "solo"
+  }else if(family[i] >= 2 & family[i] < 5){
+    family[i] = "small"
+  }else{
+    family[i] = "large"
+  }
+}
+
+table(family)
+full$family = factor(family) 
+
+```
+
+Alternate method - Family
+```{r}
+# Lets create a Family size 
+
+full_titanic$FamilySize = full_titanic$SibSp + full_titanic$Parch + 1
+
+full_titanic$FamilySized[full_titanic$FamilySize == 1]   = 'Single'
+full_titanic$FamilySized[full_titanic$FamilySize < 5 & full_titanic$FamilySize >= 2]   = 'Small'
+full_titanic$FamilySized[full_titanic$FamilySize >= 5]   = 'Large'
+
+full_titanic$FamilySized=as.factor(full_titanic$FamilySized)
+```
+
+Consider assigning converting to normalized numeric
+
+
+
+AGE
+------------------------------------------------------------------------
+You may have to wait on this - and study up on decision trees
+```{r}
+library(xgboost)
+library(rpart)
+library(Ckmeans.1d.dp)
+```
+
+```{r}
+dim(full[!is.na(full$Age),])
+full[!is.na(full$Age), ]
+names(full)
+```
+
+Recursive Partitioning and Regression Trees
+
+```{r}
+Agefit = rpart(Age ~ Pclass + Sex + SibSp + Parch + Fare + Embarked + title + family, data=full[!is.na(full$Age),], method="anova")
+        
+full$Age[is.na(full$Age)] = predict(Agefit, full[is.na(full$Age),])
+```
+
+
+```{r}
+# number of survivals and nonsurvivals across different age
+
+ggplot(full[1:891,], aes(Age,fill = factor(Survived))) +
+    geom_histogram()
+```
+
+
+Alternative method - average age
+```{r}
+full$Age = ifelse(is.na(full$Age),
+                          ave(full$Age, FUN = function(x) mean(x, na.rm = TRUE)),
+                          full$Age)
+#na.rm: a logical value indicating whether NA values should be stripped before the computation proceeds.
+```
+
+
+SEX
+------------------------------------------------------------------------
+
+```{r}
+ggplot(full[1:891,],aes(x = Sex, fill=factor(Survived))) +
+geom_histogram(stat = "count")
+#ggtitle("Sex vs Survival Rate")+
+#xlab("Sex") +
+#ylab("Total Count") +
+#labs(fill = "Survived") 
+```
+
+CABIN
+------------------------------------------------------------------------
+
+```{r}
+
+# Process Cabin Column to show number of cabins passenger has
+cabin = as.character(full$Cabin)
+n = length(cabin)
+for(i in 1:n){
+  if(nchar(cabin[i]) == 0){
+    cabin[i] = 0
+  } else{
+    cabin[i] = length(strsplit(cabin[i]," ")[[1]])
+  }
+} 
+table(cabin)
+#looks good, use it for now
+full$Cabin = factor(cabin)
+str(full)
+#consider numeric
+```
+
+
+```{r}
+
+ggplot(full[1:891,],aes(x = Cabin,fill=factor(Survived))) +
+geom_bar() +
+ggtitle("Cabin v/s Survival Rate")+
+xlab("Cabin") +
+ylab("Total Count") +
+labs(fill = "Survived")  
+```
+
+
+
+TICKET
+------------------------------------------------------------------------
+
+```{r}
+t_unique = rep(0, nrow(full)) #zero array used to construct new column
+tickets = unique(full$Ticket)
+
+str(tickets) #929 unique ticket values
+str(full$Ticket) #1309
+str(t_unique) #1309 zero vector
+n = length(tickets)
+for(i in 1:n){
+  group = which(full$Ticket == tickets[i]) #integer row vector consisting of index numbers where this is TRUE
+  m = length(group)
+  
+  for(k in 1:m){
+    t_unique[group[k]] = m
+  }
+}
+
+
+```
+
+
+
+```{r}
+t_size = c()
+n = length(t_unique)
+for(i in 1:n){
+  if(t_unique[i] == 1){
+    t_size[i] = "solo"
+  }else if(t_unique[i] >= 2 & t_unique[i] < 5){
+    t_size[i] = "small"
+  }else{
+    t_size[i] = "large" 
+  }
+}
+
+str(t_size)  
+table(t_size)
+full$ticket_group = factor(t_size)
+# consider numeric
+```
+
+
+```{r}
+ggplot(full[1:891,],aes(x = ticket_group,fill=factor(Survived))) +
+geom_bar() +
+ggtitle("Ticket v/s Survival Rate")+
+xlab("Ticket") +
+ylab("Total Count") +
+labs(fill = "Survived")  
+```
+
+This could be an interaction between having muliple tickets and being a male. Assume most of the poor families lost the father/husband
+
+Export to csv
+By default, R uses traditional dummy coding (called “treatment contrasts” in R) for any non-ordered factors,
+```{r}
+ex = full[c("Pclass","Sex","Embarked", "family", "title", "Age", "Cabin", "ticket_group", "Fare", "Survived")]
+
+# numerics are not normalized btw
+
+library(caret)
+dmy = dummyVars(" ~ .", data = ex, fullRank=T)
+ex.new = data.frame(predict(dmy, newdata = ex))
+#dummy trap solved
+
+ex.new$Age = scale(as.numeric(ex.new$Age))
+ex.new$Fare = scale(as.numeric(ex.new$Fare))
+
+# Write CSV in R
+write.csv(ex.new, file = "../processed_data/5_15.csv") #may have to manually drop dummy var
+```
+
+
+
+
+MATRIX
+------------------------------------------------------------------------
+
+```{r}
+
+#ready to go for test
+y = full[891:1309, c("Pclass","Sex","Embarked", "family", "title", "Age", "Cabin", "ticket_group", "Fare")]
+
+X = full[1:891, c("Pclass","Sex","Embarked", "family", "title", "Age", "Cabin", "ticket_group", "Fare", "Survived")]
+
+X$Age = scale(as.numeric(X$Age))
+X$Fare = scale(as.numeric(X$Fare))
+
+y$Age = scale(as.numeric(y$Age))
+y$Fare = scale(as.numeric(y$Fare))
+```
+
+
+
+
+```{r}
+
+library(caTools)
+
+split = sample.split(X$Survived, SplitRatio = 0.75)
+training_set = subset(X, split == TRUE)
+test_set = subset(X, split == FALSE)
+
+```
+
+
+
+
+
+GLM
+------------------------------------------------------------------------
+
+```{r}
+fit = glm(formula =  Survived ~ ., 
+                 family = binomial,
+                 data = training_set)
+
+prob_pred = predict(fit, type = 'response', newdata = test_set)
+
+head(prob_pred) # probability that dependent variable is equal to one
+y_pred = ifelse(prob_pred > 0.5, 1, 0)
+#y_pred[1:10]
+#prob_pred[1:10]
+
+# test_set[ , 10]
+# Making the Confusion Matrix/accuracy
+cm = as.matrix(table(Actual = test_set[ , 10], Predicted = y_pred))
+paste("Accuracy = ", sum(diag(cm))/sum(cm))
+```
+
+
+
+KERNEL SVM
+------------------------------------------------------------------------
+
+```{r}
+library(e1071)
+
+fit = svm(formula =  Survived ~ ., data = training_set, 
+          type = 'C-classification', 
+          kernel = 'radial')
+          
+                 
+
+prob_pred = predict(fit, type = 'response', newdata = test_set)
+
+head(prob_pred) # don't need to write script for SVM 
+
+
+# test_set[ , 10]
+# Making the Confusion Matrix/accuracy
+cm = as.matrix(table(Actual = test_set[ , 10], Predicted = prob_pred))
+paste("Accuracy = ", sum(diag(cm))/sum(cm))
+```
+
+
+
+NAIVE BAYES
+------------------------------------------------------------------------
+
+```{r}
+
+fit = naiveBayes(x = training_set[-10],
+                        y = training_set$Survived)
+
+prob_pred = predict(fit, newdata = test_set) #binary output
+
+cm = as.matrix(table(Actual = test_set[ , 10], Predicted = prob_pred))
+paste("Accuracy = ", sum(diag(cm))/sum(cm))
+```
+
+
+

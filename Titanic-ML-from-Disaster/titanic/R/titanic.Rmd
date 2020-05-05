@@ -1,0 +1,444 @@
+---
+title: "titanic"
+output: html_document
+---
+
+Using Kernal 'Beginners Titanic'
+
+Error message: The message means that both the packages have functions with the same names. In this particular case, the testthat and assertive packages contain five functions with the same name.
+```{r}
+library('ggplot2') 
+library('dplyr') 
+library('car')
+```
+
+Factor variables are categorical variables that can be either numeric or string variables. There are a number of advantages to converting categorical variables to factor variables. ... The only required argument is a vector of values which can be either string or numeric.
+
+```{r}
+train = read.csv('../raw_data/train (1).csv', stringsAsFactors=F)
+dim(train)
+
+test = read.csv('../raw_data/test (1).csv', stringsAsFactors = F)
+test$Survived = NA
+dim(test)
+
+full = rbind(train, test) 
+# check the structure
+str(full)
+head(full)
+tail(full)
+summary(full)
+```
+
+Missing value imputation
+
+```{r}
+# is there any Missing obesrvation
+colSums(is.na(full))
+# Empty data
+colSums(full=='')
+
+```
+
+```{r}
+table(full$Embarked)
+# replace missing with mode
+full$Embarked[full$Embarked==""]="S"
+table(full$Embarked)
+# Age and Cabin are missing too many for mode
+```
+
+Check the length and see how many varibles of them we can move to factor for our analysis
+
+appy: Returns a vector or array or list of values obtained by applying a function to margins of an array or matrix.
+
+Margin: a vector giving the subscripts which the function will be applied over. E.g., for a matrix 1 indicates rows, 2 indicates columns, c(1, 2) indicates rows and columns. Where X has named dimn ames, it can be a character vector selecting dimension names.
+
+```{r}
+apply(full,2, function(x) length(unique(x))) # number of unique values per column
+```
+nchar takes a character vector as an argument and returns a vector whose elements contain the sizes of the corresponding elements of x.
+vector equivalent form of the if…else statement in R, the ifelse() function. So in R, you can't simply apply if-else to 
+vector without 'for' statement. When using data$column, use the following:
+
+AGE
+```{r}
+
+full$Age = ifelse(is.na(full$Age),
+                          ave(full$Age, FUN = function(x) mean(x, na.rm = TRUE)),
+                          full$Age)
+
+# na.rm: a logical value indicating whether NA values should be stripped before the computation proceeds.
+                     
+```
+
+
+FARE
+```{r}
+
+full$Fare = ifelse(is.na(full$Fare),
+                     ave(full$Fare, FUN = function(x) mean(x, na.rm = TRUE)),
+                     full$Fare)
+```
+
+
+CABIN
+```{r}
+
+# Process Cabin Column to show number of cabins passenger has
+cabin = full$Cabin
+n = length(cabin)
+for(i in 1:n){
+  if(nchar(cabin[i]) == 0){
+    cabin[i] = 0
+  } else{
+    cabin[i] = length(strsplit(cabin[i]," ")[[1]])
+  }
+} 
+table(cabin)
+#looks good, use it for now
+full$Cabin = cabin
+str(full)
+
+```
+
+TITLE
+```{r}
+head(full$Name)
+
+names = full$Name
+title =  gsub("^.*, (.*?)\\..*$", "\\1", names)
+
+table(title)
+```
+
+```{r}
+n = length(title)
+for(i in 1:n){
+  if(title[i] == "Mlle"){
+    title[i] = "Miss"
+  }else if(title[i] == "Ms"){
+    title[i] = "Miss"
+  }else if(title[i] == "Mme"){
+    title[i] = "Mrs"
+  }else if(title[i] == "Lady"){
+    title[i] = "Miss"
+  }else if(title[i] == "Dona"){
+    title[i] = "Mrs"
+  }else if(title[i] == "Don"){
+    title[i] = "Master"
+  }else if(title[i] == "Capt"){
+    title[i] = "crew"
+  }else if(title[i] == "Col"){
+    title[i] = "crew"
+  }else if(title[i] == "Major"){
+    title[i] = "crew"
+  }else if(title[i] == "Rev"){
+    title[i] = "crew"
+  }else if(title[i] == "Dr"){
+    title[i] = "crew"
+  }else if(title[i] == "Jonkheer"){
+    title[i] = "Master"
+  }else if(title[i] == "Sir"){
+    title[i] = "Master"
+  }else if(title[i] == "the Countess"){
+    title[i] = "Mrs"
+  }
+}
+
+table(title)
+full$title = title
+```
+
+
+FAMILY
+```{r}
+sib = full$SibSp
+pat = full$Parch
+family = sib + pat + 1
+n = length(family)
+for(i in 1:n){
+  if(family[i] == 1){
+    family[i] = "solo"
+  }else if(family[i] >= 2 & family[i] < 5){
+    family[i] = "small"
+  }else{
+    family[i] = "large"
+  }
+}
+
+table(family)
+full$family = family 
+```
+
+
+TICKET
+```{r}
+t_unique = rep(0, nrow(full)) #zero array used to construct new column
+tickets = unique(full$Ticket)
+
+str(tickets) #929 unique ticket values
+str(full$Ticket) #1309
+str(t_unique) #1309 zero vector
+n = length(tickets)
+for(i in 1:n){
+  group = which(full$Ticket == tickets[i]) #integer row vector consisting of index numbers where this is TRUE
+  m = length(group)
+  
+  for(k in 1:m){
+    t_unique[group[k]] = m
+  }
+}
+
+
+```
+
+```{r}
+t_size = c()
+n = length(t_unique)
+for(i in 1:n){
+  if(t_unique[i] == 1){
+    t_size[i] = "solo"
+  }else if(t_unique[i] >= 2 & t_unique[i] < 5){
+    t_size[i] = "small"
+  }else{
+    t_size[i] = "large" 
+  }
+}
+
+str(t_size)  
+table(t_size)
+full$ticket_group = t_size
+
+```
+
+
+
+```{r}
+str(full)
+cols=c("Survived","Pclass","Sex","Embarked", "family", "title", "Cabin", "ticket_group")
+for (i in cols){
+  full[,i]=as.factor(full[,i])
+}
+
+contrasts(full$Pclass)
+
+typeof(full$Age)
+
+#ready to go for test
+y = full[891:1309, c("Pclass","Sex","Embarked", "family", "title", "Age", "Cabin", "ticket_group", "Fare")]
+
+
+
+
+X = full[1:891, c("Pclass","Sex","Embarked", "family", "title", "Age", "Cabin", "ticket_group", "Fare", "Survived")]
+
+X$Age = scale(as.numeric(X$Age))
+X$Fare = scale(as.numeric(X$Fare))
+
+y$Age = scale(as.numeric(y$Age))
+y$Fare = scale(as.numeric(y$Fare))
+
+
+library(caTools)
+
+split = sample.split(X$Survived, SplitRatio = 0.75)
+training_set = subset(X, split == TRUE)
+test_set = subset(X, split == FALSE)
+
+```
+
+```{r}
+
+fit = glm(formula =  Survived ~ ., 
+                 family = binomial,
+                 data = training_set)
+
+prob_pred = predict(fit, type = 'response', newdata = test_set)
+
+head(prob_pred) # probability that dependent variable is equal to one
+y_pred = ifelse(prob_pred > 0.5, 1, 0)
+y_pred[1:10]
+prob_pred[1:10]
+
+# test_set[ , 10]
+# Making the Confusion Matrix/accuracy
+cm = as.matrix(table(Actual = test_set[ , 10], Predicted = y_pred))
+paste("Accuracy = ", sum(diag(cm))/sum(cm))
+```
+
+
+```{r}
+summary(fit)
+
+```
+
+Keep fare, ticket, Age, family
+
+```{r}
+fit = glm(formula =  Survived ~ Fare + ticket_group + Age + family + Sex + Pclass + title, 
+                 family = binomial,
+                 data = training_set)
+#need to adjust test data for this
+prob_pred = predict(fit, type = 'response', newdata = test_set)
+
+head(prob_pred) # probability that dependent variable is equal to one
+y_pred = ifelse(prob_pred > 0.5, 1, 0)
+y_pred[1:10]
+
+cm = as.matrix(table(Actual = test_set[ , 10], Predicted = y_pred))
+paste("Accuracy = ", sum(diag(cm))/sum(cm))
+```
+
+
+Kernal SVM
+```{r}
+library(e1071)
+
+fit = svm(formula =  Survived ~ ., data = training_set, 
+          type = 'C-classification', 
+          kernel = 'radial')
+          
+                 
+
+prob_pred = predict(fit, type = 'response', newdata = test_set)
+
+head(prob_pred) # don't need to write script for SVM 
+
+
+# test_set[ , 10]
+# Making the Confusion Matrix/accuracy
+cm = as.matrix(table(Actual = test_set[ , 10], Predicted = prob_pred))
+paste("Accuracy = ", sum(diag(cm))/sum(cm))
+```
+
+
+
+Naive Bayes
+
+```{r}
+
+fit = naiveBayes(x = training_set[-10],
+                        y = training_set$Survived)
+
+prob_pred = predict(fit, newdata = test_set) #binary output
+
+cm = as.matrix(table(Actual = test_set[ , 10], Predicted = prob_pred))
+paste("Accuracy = ", sum(diag(cm))/sum(cm))
+```
+
+
+
+
+NN needs work
+```{r}
+library(h2o)
+h2o.init(nthreads = -1) #, max_mem_size = '2g', ip = "127.0.0.1", port = 54321
+model = h2o.deeplearning(y = 'Exited',
+                         training_frame = as.h2o(training_set),
+                         activation = 'Rectifier',
+                         hidden = c(5,5),
+                         epochs = 100,
+                         train_samples_per_iteration = -2)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--------------------------------------------APPENDIX-----------------------------------------
+
+```{r}
+n = sum(cm) # number of instances
+nc = nrow(cm) # number of classes
+diag = diag(cm) # number of correctly classified instances per class 
+rowsums = apply(cm, 1, sum) # number of instances per class
+colsums = apply(cm, 2, sum) # number of predictions per class
+p = rowsums / n # distribution of instances over the actual classes
+q = colsums / n # distribution of instances over the predicted classes
+cm
+n
+sum(diag)
+accuracy = sum(diag) / n 
+accuracy
+
+#Precision is defined as the fraction of correct predictions for a certain class
+precision = diag / colsums 
+
+#recall is the fraction of instances of a class that were correctly predicted. 
+recall = diag / rowsums 
+
+#F-1 score is also commonly reported. It is defined as the harmonic mean (or a weighted average) of precision and recall.
+f1 = 2 * precision * recall / (precision + recall) 
+
+data.frame(precision, recall, f1) 
+```
+
+
+```{r}
+ggplot(full[1:891,],aes(x = Cabin,fill=factor(Survived))) +
+geom_bar() +
+ggtitle("Cabin v/s Survival Rate")+
+xlab("Cabin") +
+ylab("Total Count") +
+labs(fill = "Survived")  
+```
+
+```{r}
+###Visualize P class which is the best proxy for Rich and Poor  
+
+ggplot(full[1:891,],aes(x = Pclass,fill=factor(Survived))) +
+geom_bar() +
+ggtitle("Pclass v/s Survival Rate")+
+xlab("Pclass") +
+ylab("Total Count") +
+labs(fill = "Survived")  
+```
+
+
+```{r}
+ggplot(full[1:891,], aes(x = title, fill = Survived)) +
+  geom_bar() +
+  facet_wrap(~Pclass) + 
+  ggtitle("3-way relationship of Title, Pclass, and Survival") +
+  xlab("Title") +
+  ylab("Total Count") +
+  labs(fill = "Survived")
+```
+
+```{r}
+# Visualize the 3-way relationship of sex, pclass, and survival
+ggplot(full[1:891,], aes(x = Sex, fill = Survived)) +
+geom_bar() + #bar chart
+facet_wrap(~Pclass) + 
+ggtitle("3D view of sex, pclass, and survival") +
+xlab("Sex") +
+ylab("Total Count") +
+labs(fill = "Survived")
+```
+
+
+```{r}
+# Visualize the 3-way relationship of sex, pclass, and survival
+ggplot(full[1:891,], aes(x = Sex, fill = Survived)) +
+geom_bar() + #bar chart
+facet_wrap(~Pclass) + 
+ggtitle("3D view of sex, pclass, and survival") +
+xlab("Sex") +
+ylab("Total Count") +
+labs(fill = "Survived")
+```
