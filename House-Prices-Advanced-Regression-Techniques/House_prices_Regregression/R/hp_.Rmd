@@ -1,0 +1,514 @@
+---
+title: "Home prices"
+output: html_document
+---
+
+```{r}
+df = read.csv('train(1).csv')
+str(df)
+```
+
+Need to rethink this. The variance stabilization is fine, but visually identifying and capping outliers in not ok. We need to go directly for cooks distance. We are only concerned with influential points. Finding leverage points must be combined with studentized residuals pg 151 IOT determine if a leverage point is influential. 
+
+LOT AREA
+---------------------------------------------------
+
+1: Create manageable Sample
+--------------------------------------------
+```{r}
+test = cbind(df$LotArea, df$SalePrice)
+colnames(test) = c('x', 'y')
+colnames(test)[1]
+test = data.frame(test[1:100, ])
+str(test)
+```
+
+2: Run linear, observe R^2
+-----------------------------------------
+
+```{r}
+fit = lm(y ~ x, test)
+summary(fit)
+names(summary(fit))
+summary(fit)$adj.r.squared
+```
+
+
+3: Investigate scatterplots, consider variance stabilization. 
+-------------------------------------------
+
+```{r}
+
+plot(test$x, log(test$y), main = 'lny - better looking variance', ylab = 'lny', pch=20) 
+plot(test$x, test$y, main = 'y', pch=20)
+# two outliers - need to justify there removal
+```
+
+We go ahead and change the y values in test in df. 
+
+```{r}
+test$y = log(test$y)
+```
+
+
+4: Identify visible outliers/extreme values - do not cap or modify
+---------------------------------------------
+
+
+```{r}
+#regressors
+max(test$x)
+plot(test$x)
+which(test$x > 50000) # index 54 is a potential concern
+test[54, ]
+```
+
+```{r}
+#response 
+max(test$y)
+plot(test$y)
+quantile(test$y)
+quantile(test$y, probs = c(0.05, 0.95))
+which(test$y > 12.99) 
+#test$y[test$y > 12.99] = 12.64237 Do not cap at this point
+test[59, ]
+
+plot(test$x, test$y, pch=20)
+```
+
+So indexes 59 & 54 show extreme values
+
+
+5: Test for Leverage, influence - modify if appropriate
+------------------------------------------
+Any point with a large residual and a large hii is potentially highly influential 
+model.matrix(fit) ---> X
+residuals(fit) ---> e
+rstandard(fit) ---> r
+```{r}
+fit= lm(y ~ x, test) # while the extreme at 59 looked bad before, we see that it could simply be a leverage point (not influential)
+with(test, plot(x, y))
+abline(fit) #must run as a chunk!
+```
+
+Review lecture 12
+
+```{r}
+summary(fit) 
+names(summary(fit)) 
+plot(fit, which = ) # Cooks indicates 54
+#cor(test$x, test$y)
+#cov(test$x, test$y)
+names(fit)# does not have rstandard
+plot(rstandard(fit))
+rstandard(fit)
+max(abs(rstandard(fit))) # make sure you do absolute value
+rstandard(fit)[abs(rstandard(fit)) > 2.4]
+```
+
+These 3 are notable. Now we test for high leverage
+
+```{r}
+X = model.matrix(fit)
+dim(X)
+H = X %*% solve( t(X)%*%X , t(X) )
+diag(H)
+max(diag(H))
+plot(diag(H))
+which(diag(H) > .5)
+# So index 54 has high leverage
+mean(diag(H))
+
+diag(H)[59] # not high
+diag(H)[31]
+diag(H)[67] # nope
+```
+High leverage points at 54 
+standard residuals 54 = -2.513350  
+
+This point is likely influential. Try Cook.
+
+```{r}
+cooks.distance(fit)
+plot(cooks.distance(fit)) 
+max(cooks.distance(fit))
+which(cooks.distance(fit) > 4) # Cook confirms
+```
+
+```{r}
+plot(test$x, test$y, pch=20)
+```
+
+We're modifying a regressor. We should use a quantile cap (or random forest or fitted value)
+```{r}
+names(fit)
+quantile(test$x, prob = c(.05, .95))
+test$x[54] = 15616.3 
+plot(test$x, test$y, pch=20)
+```
+
+
+
+6: Run varius Transformations - observe R^2
+-----------------------------------
+
+```{r}
+x = test$x
+y = test$y
+```
+
+
+y = lnx
+```{r}
+xp = log(x)
+fit = lm(y ~ xp)
+c = paste("Model 2:: y=a+b log(x)\nR squared = ",round(digits=4,summary(fit)$r.squared))
+plot(x,y,pch=20,main=c)
+lines(sort(x), fit$fitted[sort.list(x)], col="blue")
+pmfrow = par("mfrow");par(mfrow=c(2,2));
+plot(fit); par("mfrow"=pmfrow);
+sumlm=capture.output(summary(fit));
+c = NULL;
+for(i in 1:length(sumlm)){
+c=paste(c,"\n",sumlm[i],sep="")
+}
+c=paste("> summary(fit)\n",c,"\n>",sep="");
+pmar = par("mar");par("mar"=c(1,1,1,1));
+plot(NA, xlim=c(0,1), ylim=c(0,1), bty='n', xaxt='n', yaxt='n', xlab='', ylab='')
+xx = 0; yy=0.5;
+text(xx,yy,c, cex=.9,pos=4);
+par("mar"=pmar)
+```
+
+y = x^2 - best R^2 if y is not tranformed
+```{r}
+xsq = x^2
+fit = lm(y ~ x+xsq)
+c = paste("Model 6:: y = a + bx + cx^2\nR squared = ",round(digits=4,summary(fit)$r.squared))
+par(mfrow=c(1,1))
+plot(x,y,pch=20,main=c)
+lines(sort(x), fit$fitted[sort.list(x)], col="blue")
+pmfrow = par("mfrow");par(mfrow=c(2,2));
+plot(fit); par("mfrow"=pmfrow);
+sumlm=capture.output(summary(fit));
+c = NULL;
+for(i in 1:length(sumlm)){
+c=paste(c,"\n",sumlm[i],sep="")
+}
+c=paste("> summary(fit)\n",c,"\n>",sep="");
+pmar = par("mar");par("mar"=c(1,1,1,1));
+plot(NA, xlim=c(0,1), ylim=c(0,1), bty='n', xaxt='n', yaxt='n', xlab='', ylab='')
+xx = 0; yy=0.5;
+text(xx,yy,c, cex=.9,pos=4);
+par("mar"=pmar);
+```
+
+
+y = sqrt(x)
+```{r}
+xsqrt = sqrt(x)
+fit = lm(y ~ xsqrt)
+c = paste("Model 6:: y = a + bsqrt(x) \nR squared = ",round(digits=4,summary(fit)$r.squared))
+par(mfrow=c(1,1))
+plot(x,y,pch=20,main=c)
+lines(sort(x), fit$fitted[sort.list(x)], col="blue")
+pmfrow = par("mfrow");par(mfrow=c(2,2));
+plot(fit); par("mfrow"=pmfrow);
+sumlm=capture.output(summary(fit));
+c = NULL;
+for(i in 1:length(sumlm)){
+c=paste(c,"\n",sumlm[i],sep="")
+}
+c=paste("> summary(fit)\n",c,"\n>",sep="");
+pmar = par("mar");par("mar"=c(1,1,1,1));
+plot(NA, xlim=c(0,1), ylim=c(0,1), bty='n', xaxt='n', yaxt='n', xlab='', ylab='')
+xx = 0; yy=0.5;
+text(xx,yy,c, cex=.9,pos=4);
+par("mar"=pmar);
+```
+
+```{r}
+summary(fit)$adj.r.squared
+```
+
+-----------------
+
+
+
+
+Variance checking - initial look
+----------------------------------------
+choose LotArea, yearbuilt
+```{r}
+str(df)
+colSums(is.na(df))
+
+sum(is.na(df$YearBuilt))
+
+```
+
+```{r}
+str(df$LotArea)
+sum(is.na(df$LotArea))
+#performing a linear regression with plots IOT determine data behavior
+fit = lm(SalePrice ~ LotArea, df)
+summary(fit)
+layout(matrix(c(1, 2, 3, 4), 2, 2))
+plot(fit)
+
+```
+
+Holy shit, impossible to interprete...too much data. Consider dropping a few outlierss
+
+```{r}
+names(summary(fit))
+names(fit)
+summary(fit)$deviance.resid
+```
+---------------------
+
+
+
+YEAR BUILT
+---------------------------------------------------
+
+1: Create manageable Sample
+------------------
+```{r}
+str(df$YearBuilt)
+test2 = cbind(df$YearBuilt, df$SalePrice)
+test2 = data.frame(test2[1:100, ])
+colnames(test2) = c('x', 'y')
+str(test2)
+```
+
+
+2: Run linear, observe R^2
+-----------------------------------------------
+
+```{r}
+fit2 = lm(y ~ x, test2)
+summary(fit2)$adj.r.squared #not bad
+```
+
+Needed to note this for later reference
+
+3: Investigate scatterplots, consider variance stabilization. 
+--------------------
+
+```{r}
+plot(test2$x, log(test2$y), main = 'lny - better looking variance', ylab = 'lny', pch=20) 
+plot(test2$x, test2$y, main = 'y', pch=20)
+```
+
+We go ahead and change the y values in test in df. 
+
+```{r}
+test2$y = log(test2$y)
+```
+
+4: Identify visible outliers/extreme values
+----------------------
+Need to explore whether this is acceptable or if I can justify it
+we're looking at both scatter plots. Lny appears to have better equality of variance. 
+Should probably keep the original data and test for influence
+
+```{r}
+plot(test2$x, test2$y, pch=20)
+#regressor - we identify this outlier visually
+max(test2$x)
+library(Hmisc)
+describe(test2$x)
+plot(test2$x)
+which(test2$x > 2007) # index 88
+test2$x[88]
+
+
+#response - visually again
+max(test2$y)
+plot(test2$y)
+mean(test$y)
+quantile(test2$y)
+#quantile(test$y, probs = c(0.05, 0.95))
+which(test2$y > 12.99) 
+#test$y[test$y > 12.99] = 12.64237 
+test2$y[59]
+```
+
+So 88 and 59 are max values
+
+
+5: Test for Leverage, influence - modify if appropriate
+------------------------------------------
+Any point with a large residual and a large hii is potentially highly influential 
+model.matrix(fit) ---> X
+residuals(fit) ---> e
+rstandard(fit) ---> r
+```{r}
+fit2= lm(y ~ x, test2) 
+with(test2, plot(x, y))
+abline(fit2) #must run as a chunk!
+```
+
+Review lecture 12
+
+```{r}
+summary(fit2) 
+names(summary(fit2)) 
+plot(fit2, which = ) # Cooks good
+names(fit2)
+plot(rstandard(fit2))
+rstandard(fit2)
+max(abs(rstandard(fit2))) # make sure you do absolute value
+rstandard(fit2)[abs(rstandard(fit2)) > 2.5]
+# 2.5 sd feels reasonable
+```
+
+These 2 are notable. Now we test for high leverage
+
+```{r}
+X = model.matrix(fit2)
+dim(X)
+H = X %*% solve( t(X)%*%X , t(X) )
+diag(H)
+max(diag(H))
+plot(diag(H))
+which(diag(H) > .05)
+# Nothing is jumping out
+mean(diag(H))
+
+diag(H)[31] # This could be considered relatively high
+diag(H)[54]
+diag(H)[59]
+diag(H)[88]# nope
+```
+High leverage points at 31 
+standard residuals 54 = -3.170583  
+
+This point is likely influential. Try Cook.
+
+```{r}
+cooks.distance(fit2)
+plot(cooks.distance(fit2)) 
+max(cooks.distance(fit2))
+which(cooks.distance(fit2) > .2) # Cook confirms
+```
+
+```{r}
+plot(test2$x, test2$y, pch=20)
+test2[31, ] # sales price unusally high for a house built in 1920
+```
+
+We're modifying a regressor. We should use a quantile cap (or random forest or fitted value)
+```{r}
+names(fit2)
+quantile(test2$x, prob = c(.05, .95))
+test2$x[31] = 2006.05 
+plot(test2$x, test2$y, pch=20)
+```
+
+Check the new adjusted R^2
+
+```{r}
+summary(fit2)$adj.r.squared
+```
+
+
+
+6: Run varius Transformations - observe R^2
+-----------------------------------
+
+```{r}
+x = test2$x
+y = test2$y
+```
+
+
+y = lnx
+```{r}
+xp = log(x)
+fit = lm(y ~ xp)
+c = paste("Model 2:: y=a+b log(x)\nR squared = ",round(digits=4,summary(fit)$r.squared))
+plot(x,y,pch=20,main=c)
+lines(sort(x), fit$fitted[sort.list(x)], col="blue")
+pmfrow = par("mfrow");par(mfrow=c(2,2));
+plot(fit); par("mfrow"=pmfrow);
+sumlm=capture.output(summary(fit));
+c = NULL;
+for(i in 1:length(sumlm)){
+c=paste(c,"\n",sumlm[i],sep="")
+}
+c=paste("> summary(fit)\n",c,"\n>",sep="");
+pmar = par("mar");par("mar"=c(1,1,1,1));
+plot(NA, xlim=c(0,1), ylim=c(0,1), bty='n', xaxt='n', yaxt='n', xlab='', ylab='')
+xx = 0; yy=0.5;
+text(xx,yy,c, cex=.9,pos=4);
+par("mar"=pmar)
+```
+
+y = x^2 - best R^2 if y is not tranformed
+```{r}
+xsq = x^2
+fit = lm(y ~ x+xsq)
+c = paste("Model 6:: y = a + bx + cx^2\nR squared = ",round(digits=4,summary(fit)$r.squared))
+par(mfrow=c(1,1))
+plot(x,y,pch=20,main=c)
+lines(sort(x), fit$fitted[sort.list(x)], col="blue")
+pmfrow = par("mfrow");par(mfrow=c(2,2));
+plot(fit); par("mfrow"=pmfrow);
+sumlm=capture.output(summary(fit));
+c = NULL;
+for(i in 1:length(sumlm)){
+c=paste(c,"\n",sumlm[i],sep="")
+}
+c=paste("> summary(fit)\n",c,"\n>",sep="");
+pmar = par("mar");par("mar"=c(1,1,1,1));
+plot(NA, xlim=c(0,1), ylim=c(0,1), bty='n', xaxt='n', yaxt='n', xlab='', ylab='')
+xx = 0; yy=0.5;
+text(xx,yy,c, cex=.9,pos=4);
+par("mar"=pmar);
+```
+
+
+y = sqrt(x)
+```{r}
+xsqrt = sqrt(x)
+fit = lm(y ~ xsqrt)
+c = paste("Model 6:: y = a + bsqrt(x) \nR squared = ",round(digits=4,summary(fit)$r.squared))
+par(mfrow=c(1,1))
+plot(x,y,pch=20,main=c)
+lines(sort(x), fit$fitted[sort.list(x)], col="blue")
+pmfrow = par("mfrow");par(mfrow=c(2,2));
+plot(fit); par("mfrow"=pmfrow);
+sumlm=capture.output(summary(fit));
+c = NULL;
+for(i in 1:length(sumlm)){
+c=paste(c,"\n",sumlm[i],sep="")
+}
+c=paste("> summary(fit)\n",c,"\n>",sep="");
+pmar = par("mar");par("mar"=c(1,1,1,1));
+plot(NA, xlim=c(0,1), ylim=c(0,1), bty='n', xaxt='n', yaxt='n', xlab='', ylab='')
+xx = 0; yy=0.5;
+text(xx,yy,c, cex=.9,pos=4);
+par("mar"=pmar);
+```
+
+```{r}
+summary(fit2)$adj.r.squared # stick with the original regressor
+```
+
+-----------------
+
+
+YearRemodAdd 
+
+```{r}
+table(df$YearRemodAdd)
+table(is.na(df$YearRemodAdd))
+```
+
+Need to turn this into a data cleaning function...
+
+address multicollinearity...
+
+Then consider the GLM case.
